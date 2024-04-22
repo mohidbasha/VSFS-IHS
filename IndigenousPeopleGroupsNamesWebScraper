@@ -1,0 +1,354 @@
+package IndigenousPeopleGroups_NamesWebScraper.IndigenousPeopleGroups_NamesWebScraper;
+
+/* Importing necessary packages and libraries. 
+ Ensure the corresponding Maven plug-ins exist in pom.xml */
+import org.openqa.selenium.By;
+import org.openqa.selenium.WebDriver;
+import org.openqa.selenium.chrome.ChromeDriver;
+import org.openqa.selenium.chrome.ChromeOptions;
+import org.openqa.selenium.support.ui.ExpectedConditions;
+import org.openqa.selenium.support.ui.WebDriverWait;
+
+import org.apache.poi.ss.usermodel.*;
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.Random;
+import java.util.Scanner;
+
+public class IndigenousPeopleGroupsNamesWebScraper {
+
+    public static void main(String[] args) {
+    	
+    	String[] userAgents = {
+    		    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.139 Safari/537.36",
+    		    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+    		    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36",
+    		    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
+    		    "Mozilla/5.0 (X11; Linux x86_64; rv:98.0) Gecko/20100101 Firefox/98.0",
+    		    "Mozilla/5.0 (Windows NT 6.1; Trident/7.0; rv:11.0) like Gecko",
+    		    "Mozilla/5.0 (Linux; Android 10; SM-G975U) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.139 Mobile Safari/537.36",
+    		    "Mozilla/5.0 (iPhone; CPU iPhone OS 15_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Mobile/15E148 Safari/604.1",
+    		    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/100.0.4896.75 Safari/537.36 Edg/100.0.123.2",
+    		    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10.15; rv:98.0) Gecko/20100101 Firefox/98.0"
+    		};
+
+
+        // File path for Excel file to be read containing People Group Ethnicities Tribal data.
+        String inputFilePath = "/Users/mohidbasha/2023-12_PHIL_GSEC_Listing_of_People_Groups Filtered Copy_People_Groups_and_People_Names.xlsx";
+        // Country domain (URL suffix) to be searched for results.
+        String countryDomain = "ph";
+
+        // List of People Groups and other data from the Excel file.
+        ArrayList<Integer> peids = new ArrayList<Integer>();
+        ArrayList<String> peopleGroups = new ArrayList<String>();
+        ArrayList<String> peopleNames = new ArrayList<String>();
+        ArrayList<Integer> populations = new ArrayList<Integer>();
+
+        // Initializing a single WebDriver instance to be reused
+        WebDriver driver = initializeWebDriver(userAgents);
+
+        // Function call to read from Excel file and store data into the peopleGroups and peopleNames containers.
+        readExcelFile(inputFilePath, peopleGroups, peopleNames, peids, populations);
+        System.out.println(peopleGroups.size());
+        System.out.println(peopleNames.size());
+        System.out.println(peids.size());
+        System.out.println(populations.size());
+
+        // Storing the results when searching for tribes in Google.
+        List<List<String>> searchResults = new ArrayList<>();
+        
+        int currUserAgentIndex = 0; // Initialize the index for the first User-Agent
+
+        // Looping through People Groups sequentially
+        for (int i = 0; i < peopleGroups.size(); i++) {
+            String currentPeopleGroup = peopleGroups.get(i);
+            String currentPeopleName = peopleNames.get(i);
+            
+            // Get the current User-Agent based on the index
+            String currentUserAgent = userAgents[currUserAgentIndex];
+            
+            System.out.println("Current User-Agent: " + currentUserAgent);
+
+            // Pass the driver instance to connectToGoogle method
+            List<String> googleResultsWithUrls = connectToGoogle(driver, i, currentPeopleGroup, currentPeopleName, countryDomain, new String[]{currentUserAgent});
+
+            // Adding current Google results to the overall search results list.
+            searchResults.add(googleResultsWithUrls);
+
+            System.out.println("User-Agent: " + currentUserAgent + " - People Group: " + currentPeopleGroup);
+            
+            System.out.println(googleResultsWithUrls);
+
+            // Move to the next User-Agent for the next iteration
+            currUserAgentIndex = (currUserAgentIndex + 1) % userAgents.length;
+        }
+
+        // Initializing the CSV file path that will be created and writing data using function call.
+        String outputCSVFilePath = "2023-12_PHIL_People_Groups_Ethnicities_Results_By_GoogleURL";
+        String outputTXTFilePath = "2023-12_PHIL_People_Groups_Ethnicities_Results_By_GoogleURL";
+        writeToCsvAndTxtFile(outputCSVFilePath, outputTXTFilePath, peopleGroups, peopleNames,
+                peids, populations, searchResults);
+
+        System.out.println("Completed, Data has been written to .csv file: " + outputCSVFilePath + ".csv");
+        System.out.println("Completed, Data has been written to .txt file: " + outputTXTFilePath + ".txt");
+
+        // Close the ChromeDriver search browser once all of the search queries are finished.
+        driver.quit();
+    }
+    
+    private static List<String> connectToGoogle(WebDriver driver, int sizePeopleGroup, String peopleGroup, String peopleName, String countryDomain, String[] userAgents) {
+    	// Initializing the search terms and country name to be searched alongside People Group and People Name. 
+    	String searchTerms = "(\"native\" OR \"indigenous\" OR \"tribe\" OR \"tribal\" OR \"ethnic\" OR \"ethnicity\")";
+        String locationTerms = "(\"philippines\" OR \"filipino\")";
+
+        // Initial search with additional terms and restricted to the given country domain. 
+        String searchQuery = searchTerms + " OR " + locationTerms + " \"" + peopleGroup + "\" AND \"" + peopleName + "\" site:" + countryDomain;
+
+        List<String> resultList = new ArrayList<String>();
+
+        // Loop through user agents and perform searches
+        for (String userAgent : userAgents) {
+            // Set user agent in ChromeOptions
+            ChromeOptions options = new ChromeOptions();
+            options.addArguments("user-agent=" + userAgent);
+
+            // Initialize a new WebDriver instance with the updated ChromeOptions
+            WebDriver userAgentDriver = new ChromeDriver(options);
+
+            try {
+                // Perform search with the new user agent
+                List<String> googleResultsWithUrls = querySearchTerm(false, false, userAgentDriver, sizePeopleGroup, searchQuery, countryDomain, 5, peopleGroup, peopleName);
+                resultList.addAll(googleResultsWithUrls);
+            } finally {
+                // Close the WebDriver instance after each search
+                userAgentDriver.quit();
+            }
+        }
+
+
+        // Check if there are no results and perform a separate search without additional search terms
+        if (resultList.isEmpty()) {
+            System.out.println("People Group Name:" + peopleGroup + ". No results or issue retrieving data - Performing a separate search without additional terms.");
+
+            // Perform a separate search without additional search terms and restricted to the .ph domain
+            String separateSearchQuery = "\"" + peopleGroup + "\" AND \"" + peopleName + "\" site:" + countryDomain;
+            resultList = querySearchTerm(true, false, driver, sizePeopleGroup, separateSearchQuery, countryDomain, 5, peopleGroup, peopleName);
+
+            if (resultList.isEmpty()) {
+                System.out.println("People Group Name: " + peopleGroup + ". No results or issue retrieving Data - Performing a separate google search without country "
+                		+ "domain restriction.");
+
+                // Perform a separate search without additional search terms and restricted to the .ph domain
+                String separateSearchQuery2 = "\"" + peopleGroup + "\" OR \"" + peopleName + "\"";
+                resultList = querySearchTerm(false, true, driver, sizePeopleGroup, separateSearchQuery2, "", 5, peopleGroup, peopleName);
+            }
+        }
+
+        return resultList;
+    }
+    
+
+    private static List<String> querySearchTerm(boolean secondQuery, boolean thirdQuery,
+            WebDriver driver, int sizePeopleGroup, String searchTerm, String country_code, int resultsCount, String tribeName, String peopleName) {
+        
+    	 List<String> resultList = new ArrayList<String>();
+    	    String url = "https://www.google.com";
+
+    	    if (!country_code.isEmpty()) {
+    	        url = url + "." + country_code;
+    	    }
+
+    	    String search_url = url + "/search?num=" + resultsCount + "&q=" + searchTerm;
+    	    driver.get(search_url);
+
+    	    // Check for CAPTCHA
+    	    if (isCaptchaPresent(driver)) {
+    	        System.out.println("CAPTCHA detected! Please manually complete the CAPTCHA to continue.");
+    	        System.out.println("Press Enter to continue after completing the CAPTCHA.");
+    	        
+    	        // Wait for user to press Enter
+    	        Scanner sc = new Scanner(System.in);
+    	        sc.nextLine();
+    	        
+    	        try {
+    	            Thread.sleep(10000); // Pause the program, you can adjust the duration based on your needs.
+    	        } catch (InterruptedException e) {
+    	            e.printStackTrace();
+    	        }
+    	        
+    	        sc.close();
+    	    }
+    	    
+    	    WebDriverWait wait = new WebDriverWait(driver, 3);
+        try {
+            // Waiting to parse text until the search results are fully present
+            wait.until(ExpectedConditions.presenceOfElementLocated(By.cssSelector("div.g")));
+        } catch (Exception e) {
+            // Timeout/error in loading search results or accessing google search results.
+            System.out.println("Timeout currently waiting for search results.");
+        }
+        
+        // Initializing Jsoup for HTML parsing by getting the google search results HTML
+        Document doc = Jsoup.parse(driver.getPageSource());
+
+        // Finding all elements with class "g" (Google search results)
+        Elements results = doc.select("div.g");
+
+        /* Looping through elements in the webpage's HTML to find the URL, google search heading 
+         * of the website, and the text present from the URL's google search.  */
+        for (Element result : results) {
+            String spanText = result.text();
+            Element descriptionElement = result.selectFirst("div.s span.st"); // Selects the description element
+
+            if (descriptionElement != null) {
+                spanText += "\nDescription: " + descriptionElement.text();
+            }
+
+            // Extracting details like headings of google search websites and the links to the URLs that populate
+            Element headingElement = result.selectFirst("h3.LC20lb.DKV0Md");
+            Element linkElement = result.selectFirst("a[href]");
+
+            String heading = "";
+            if (headingElement != null) {
+                heading = headingElement.text();
+            }
+
+            String link = "";
+            if (linkElement != null) {
+                link = linkElement.attr("href");
+            }
+
+            // Constructing the result string with extracted details
+            String resultString = "Heading: " + heading + "\n" +
+                    "Website URL: " + link + "\n" +
+                    "Surrounding/Relevant URL Text: " + spanText + "\n\n";
+
+            resultList.add(resultString);
+            System.out.println(resultString);
+        }
+        
+        return resultList;
+    }
+
+    private static boolean isCaptchaPresent(WebDriver driver) {
+        
+        String pageSource = driver.getPageSource();
+        return pageSource.contains("Our systems have detected unusual traffic from your computer network. "
+        + "This page checks to see if it's really you sending the requests, and not a robot.");
+    }
+    
+    
+    
+    // Method to read the input of the given Excel File
+    private static void readExcelFile(String inputFilePath, ArrayList<String> peopleGroups, ArrayList<String> peopleNames,
+                                      ArrayList<Integer> peids, ArrayList<Integer> populations) {
+        Workbook workbook = null;
+        
+        try {
+            workbook = WorkbookFactory.create(new FileInputStream(inputFilePath));
+            Sheet sheet = workbook.getSheetAt(0);
+            Iterator<Row> rowIterator = sheet.iterator();
+            
+            if (rowIterator.hasNext()) {
+                rowIterator.next();
+            }
+            
+            while (rowIterator.hasNext()) {
+            	/* Getting and storing values such as the People Groups/Names, Population and PEIDS.
+            	 * Ensure that the column and format of input file matches (Note: 0-based indexing). */
+                Row row = rowIterator.next();
+                Cell peidsCell = row.getCell(0);
+                Cell groupCell = row.getCell(1);
+                Cell populationCell = row.getCell(2);
+                Cell nameCell = row.getCell(3);
+                if (peidsCell != null && peidsCell.getCellType() == CellType.NUMERIC) {
+                    peids.add((int) peidsCell.getNumericCellValue());
+                }
+                if (populationCell != null && populationCell.getCellType() == CellType.NUMERIC) {
+                    populations.add((int) populationCell.getNumericCellValue());
+                }
+                if (groupCell != null && groupCell.getCellType() == CellType.STRING) {
+                    peopleGroups.add(groupCell.getStringCellValue());
+                }
+                if (nameCell != null && nameCell.getCellType() == CellType.STRING) {
+                    peopleNames.add(nameCell.getStringCellValue());
+                }
+            }
+        } catch (IOException e) {
+            System.out.println("Error Reading/Processing Input Excel File: " + e.getMessage());
+        }
+    }
+    
+    // Method to write and create CSV and TXT files with the search results. 
+    private static void writeToCsvAndTxtFile(String CSVfilePath, String TXTfilePath, List<String> peopleGroups,
+                                             List<String> peopleNames, List<Integer> peids, List<Integer> populations,
+                                             List<List<String>> searchResults) {
+        try (CSVPrinter csvPrinter = new CSVPrinter(new FileWriter(CSVfilePath + ".csv"), CSVFormat.DEFAULT);
+             BufferedWriter txtFileWriter = new BufferedWriter(new FileWriter(TXTfilePath + ".txt"))) {
+            ArrayList<String> headerRow = new ArrayList<String>();
+            headerRow.add("PEID");
+            headerRow.add("People Group");
+            headerRow.add("People Name");
+            headerRow.add("Population");
+            headerRow.add("Google Results");
+            csvPrinter.printRecord(headerRow);
+            for (int i = 0; i < peopleGroups.size(); i++) {
+                ArrayList<String> dataRow = new ArrayList<String>();
+                dataRow.add(String.valueOf(peids.get(i)));
+                dataRow.add(peopleGroups.get(i));
+                dataRow.add(peopleNames.get(i));
+                dataRow.add(String.valueOf(populations.get(i)));
+                String googleResults = String.join("\n", searchResults.get(i));
+                dataRow.add(googleResults);
+                csvPrinter.printRecord(dataRow);
+            }
+            for (int i = 0; i < peopleGroups.size(); i++) {
+                String txtFileContent = "PEID" + peids.get(i) + "\n" + "People Group: " + peopleGroups.get(i) + "\n" +
+                        "People Name: " + peopleNames.get(i) + "\n" + "Population: " + populations.get(i) + "\n";
+                txtFileContent += "Google Results:\n" + String.join("\n", searchResults.get(i)) + "\n";
+                txtFileContent += "\n";
+                txtFileWriter.write(txtFileContent);
+            }
+        } catch (IOException e) {
+            System.out.println("Error Writing Files: " + e.getMessage());
+        }
+    }
+    
+    // Method to set up the Web Driver. Uses Chrome Selenium WebDriver.
+    
+    private static WebDriver initializeWebDriver(String[] userAgents) {
+    	// Setting up WebDriver
+    	System.setProperty("webdriver.chrome.driver", "/Users/mohidbasha/Downloads/chromedriver-mac-x64/chromedriver");
+
+        // Retrieving a random user agent string to use from the various user agents initialized in main method. 
+        String randomUserAgent = getRandomUserAgent(userAgents);
+
+        // Create ChromeOptions instance
+        ChromeOptions options = new ChromeOptions();
+
+        // Add the user agent to ChromeOptions
+        options.addArguments("user-agent=" + randomUserAgent);
+
+        // Initialize and return the ChromeDriver with options
+        return new ChromeDriver(options);
+    }
+
+    // Helper method to get a random user agent
+    private static String getRandomUserAgent(String[] userAgents) {
+        int randomIndex = new Random().nextInt(userAgents.length);
+        return userAgents[randomIndex];
+    }
+}
