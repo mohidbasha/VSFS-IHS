@@ -1,0 +1,288 @@
+package IndigenousPeopleGroups_NamesWebScraper.IndigenousPeopleGroups_NamesWebScraper;
+
+import org.apache.poi.ss.usermodel.*;
+
+import java.io.IOException;
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.regex.Matcher;
+import java.util.regex.Pattern;
+
+import org.jsoup.Connection;
+import org.jsoup.Jsoup;
+import org.jsoup.nodes.Document;
+import org.jsoup.nodes.Element;
+import org.jsoup.select.Elements;
+
+import org.apache.commons.csv.CSVFormat;
+import org.apache.commons.csv.CSVPrinter;
+
+import java.io.BufferedWriter;
+import java.io.FileInputStream;
+import java.io.FileWriter;
+
+public class IndigenousPeopleGroupsNamesWebScraper {
+
+    // Main function handling reading, processing, and writing from Excel to CSV file after web scraping.
+    public static void main(String[] args) {
+        try {
+            // Initializing file path for Excel file to be read containing People Group Ethnicities Tribal data and
+            // all of the websites that will be scraped and processed.
+            String inputFilePath = "/Users/mohidbasha/PHIL(PeopleName and People Group)_2023-07_People_Groups_demographic.xlsx";
+            String[] websites = {"https://www.inquirer.net/", "https://www.manilatimes.net/",
+            		"https://www.bworldonline.com/",
+            		"https://businessmirror.com.ph/",
+            		"https://tribune.net.ph/", 
+            		"https://www.manilastandard.net/", 
+            		"https://journal.com.ph/", 
+            		"https://visayandailystar.com/", 
+            		"https://davaotoday.com/",
+            		"https://www.aljazeera.com/where/philippines/",
+            		"https://punto.com.ph/",
+            		"https://news.google.com/topics/CAAqJQgKIh9DQkFTRVFvSUwyMHZNRFYyT0dNU0JXVnVMVWRDS0FBUAE?hl=e"
+            		+ "n-PH&gl=PH&ceid=PH%3Aen", 
+            		"https://www.ilocossentinel.com/",
+            		"https://www.pna.gov.ph/",
+            };
+
+            
+            // Initializing containers to store all people groups and people names from the input Excel file.
+            ArrayList<Integer> peids = new ArrayList<>();
+            ArrayList<String> peopleGroups = new ArrayList<>();
+            ArrayList<String> peopleNames = new ArrayList<>();
+            ArrayList<Integer> populations = new ArrayList<>();
+
+            // Function call to read from Excel file and store data into the peopleGroups and peopleNames containers.
+            readExcelFile(inputFilePath, peopleGroups, peopleNames, peids, populations);
+
+            // Storing the results when searching for tribes in each website.
+            List<List<String>> searchResults = new ArrayList<>();
+
+            // Looping through all websites and processing the content in each website.
+            for (String website : websites) {
+                ArrayList<String> websiteResults = new ArrayList<>();
+
+                // Connecting to the website, processing website HTML content for matching text, and storing results.
+                String websiteContent = connectToWebsite(website);
+                processWebsiteContent(peopleGroups, peopleNames, websiteContent, websiteResults);
+
+                // Adding current website results to the overall search results list.
+                searchResults.add(websiteResults);
+            }
+
+            // Initializing the CSV file path that will be created and writing data using function call.
+            String outputCSVFilePath = "Temp1PHIL_People_Groups_Ethnicities_Results_By_NewspaperURL";
+            String outputTXTFilePath = "Temp1PHIL_People_Groups_Ethnicities_Results_By_NewspaperURL";
+            writeToCsvAndTxtFile(outputCSVFilePath, outputTXTFilePath, websites, peopleGroups, peopleNames, 
+            		peids, populations, searchResults);
+
+            System.out.println("Completed, Data has been written to .csv file: " + outputCSVFilePath + ".csv");
+            System.out.println("Completed, Data has been written to .txt file: " + outputTXTFilePath + ".txt");
+
+        } catch (IOException e) {
+            System.out.println("Miscellaneous Error: " + e.getMessage());
+        }
+    }
+
+    
+    // Function reading Excel file data and storing into respective variables for People Group and People Name.
+    private static void readExcelFile(String inputFilePath, ArrayList<String> peopleGroups, ArrayList<String> peopleNames,
+            ArrayList<Integer> peids, ArrayList<Integer> populations) {
+        Workbook workbook = null;
+
+        try {
+            workbook = WorkbookFactory.create(new FileInputStream(inputFilePath));
+            Sheet sheet = workbook.getSheetAt(0);
+            DataFormatter dataFormatter = new DataFormatter();
+
+            // Skipping the first row as it has the headers for the file using Iterator for row. 
+            Iterator<Row> rowIterator = sheet.iterator();
+            if (rowIterator.hasNext()) {
+                rowIterator.next();
+            }
+
+
+            /* Retrieves cell values at each cell given the column parameter that represents
+                the column in the input file to be read. Loops until all rows are read. */
+            while (rowIterator.hasNext()) {
+                Row row = rowIterator.next();
+                
+                Cell peidsCell = row.getCell(0);
+                Cell groupCell = row.getCell(1);
+                Cell populationCell = row.getCell(2);
+                Cell nameCell = row.getCell(3);
+
+                peids.add((int) Double.parseDouble(dataFormatter.formatCellValue(peidsCell)));
+                populations.add((int) populationCell.getNumericCellValue());
+                peopleGroups.add(groupCell.getStringCellValue());
+                peopleNames.add(nameCell.getStringCellValue());
+            }
+
+        } catch (IOException e) {
+            System.out.println("Error Reading/Processing Input Excel File: " + e.getMessage());
+        }
+    }
+
+    
+    // Functino connecting to given website using Jsoup.connect function and returning website's content. 
+    private static String connectToWebsite(String website) {
+        Document doc = null;
+        try {
+        	// Establishing website connection through Jsoup.
+            Connection.Response response = Jsoup.connect(website).execute();
+
+            // Checking for successful website connection (status code of 200). Otherwise prints error message.
+            if (response.statusCode() == 200) {
+                doc = response.parse();
+                
+            } else {
+                System.out.println("Website connection error. " + "Website: " + website +
+                        "Status code: " + response.statusCode());
+            }
+
+        } catch (IOException e) {
+            System.out.println("Miscellaneous Error: " + e.getMessage());
+        }
+        
+        /* Returns website content's html text in lowercase if the connection and document object c
+         * ontaining website content is not null. Otherwise handles case where null. */
+        
+        if (!(doc == null)) {
+            return doc.body().text().toLowerCase();
+        } else {
+            return "Document Results Null.";
+        }
+    }
+    
+    
+    /* Function processing the website content by searching for each People Group and People Name and storing the results
+       and surrounding HTML text. */
+    private static void processWebsiteContent(List<String> peopleGroups, List<String> peopleNames,
+            String websiteContent, List<String> websiteResults) {
+
+        for (int i = 0; i < peopleGroups.size(); i++) {
+            String cellContent = "";
+            
+            // Checking for People Group first and extracting HTML text from website if found. 
+            if (containsWholeWord(websiteContent, peopleGroups.get(i).toLowerCase())) {
+                List<String> extractedText = extractHtmlText(websiteContent, peopleGroups.get(i), 250);
+                cellContent += "Found (by People Group). Surrounding Text: " + String.join(", ", extractedText);
+                
+            // Otherwise checking for People Group first and extracting HTML text from website if found. 
+            } else if (containsWholeWord(websiteContent, peopleNames.get(i).toLowerCase())) {
+                List<String> extractedText = extractHtmlText(websiteContent, peopleNames.get(i), 250);
+                cellContent += "Found (by People Name). Surrounding Text: " + String.join(", ", extractedText);
+            
+            // If People Group or People Name is not found in HTML text of website contents, states it is not found in said website. 
+            } else {
+                cellContent += "Not Found";
+            }
+            
+            // Adding each name's search result to the specified website search's results.
+            websiteResults.add(cellContent);
+        }
+    }
+    
+    private static boolean containsWholeWord(String text, String word) {
+        // Using regular expression with word boundaries to match the whole word
+        String regex = "\\b" + Pattern.quote(word) + "\\b";
+        Pattern pattern = Pattern.compile(regex, Pattern.CASE_INSENSITIVE);
+        Matcher matcher = pattern.matcher(text);
+        return matcher.find();
+    }
+
+
+    private static List<String> extractHtmlText(String websiteContent, String name, int maxLength) {
+        ArrayList<String> extractedHtmlList = new ArrayList<>();
+
+        // Using Jsoup to parse website content.
+        Document doc = Jsoup.parse(websiteContent);
+
+        // Identifying elements in the website's HTML that contain the specified name text.
+        Elements elementsContainingText = doc.getElementsContainingText(name);
+
+        // Extracting text from the selected HTML elements that surround the name text.
+        for (Element element : elementsContainingText) {
+            String ownText = element.ownText();
+
+            int startIndex = ownText.toLowerCase().indexOf(name.toLowerCase());
+
+            if (startIndex >= 0) {
+                int endIndex = Math.min(startIndex + name.length() + maxLength, ownText.length());
+                ownText = ownText.substring(Math.max(0, startIndex - maxLength), endIndex);
+            }
+
+            extractedHtmlList.add(ownText);
+        }
+
+        // Returns the resulting extracted surrounding text for use.
+        return extractedHtmlList;
+    }
+
+
+    
+    // Writing CSV and TXT files as output files containing results of search.
+    private static void writeToCsvAndTxtFile(String CSVfilePath, String TXTfilePath, String[] websites,
+                                    ArrayList<String> peopleGroups, ArrayList<String> peopleNames,
+                                    ArrayList<Integer> peids, ArrayList<Integer> populations,
+                                             List<List<String>> searchResults) throws IOException {
+        try (CSVPrinter csvPrinter = new CSVPrinter(new FileWriter(CSVfilePath + ".csv"), CSVFormat.DEFAULT);
+             BufferedWriter txtFileWriter = new BufferedWriter(new FileWriter(TXTfilePath + ".txt"))) {
+        	
+            // Writing CSV file header row's names
+            ArrayList<String> headerRow = new ArrayList<>();
+
+            headerRow.add("PEID");
+            headerRow.add("People Group");
+            headerRow.add("People Name");
+            headerRow.add("Population");
+            
+            // Adding the websites as the column headings and writing row to csv file. 
+            for (String website : websites) {
+                headerRow.add(website);
+            }
+            csvPrinter.printRecord(headerRow);
+            
+            // Writing each data row 
+            for (int i = 0; i < peopleGroups.size(); i++) {
+                ArrayList<String> dataRow = new ArrayList<>();
+                dataRow.add(String.valueOf(peids.get(i)));
+                dataRow.add(peopleGroups.get(i));
+                dataRow.add(peopleNames.get(i));
+                dataRow.add(String.valueOf(populations.get(i)));
+                
+                for (List<String> websiteResults : searchResults) {
+                    String cellContent = websiteResults.get(i);
+                    if (cellContent.contains("\n")) {
+                        // Placing multi-line text in quotes for readability.
+                        dataRow.add('"' + cellContent + '"');
+                    } else {
+                        dataRow.add(cellContent);
+                    }
+                }
+                
+                csvPrinter.printRecord(dataRow);
+            }
+            
+            /* Writing the TXT file by looping through and writing each People Group, People Name and their 
+             * corresponding search results for each website in a new line. */
+            for (int i = 0; i < peopleGroups.size(); i++) {
+                String txtFileContent = "PEID" + peids.get(i) + "\n" + "People Group: " + peopleGroups.get(i) + "\n" +
+                        "People Name: " + peopleNames.get(i) + "\n" + "Population: " + populations.get(i) + "\n";
+                
+                for (int j = 0; j < websites.length; j++) {
+                    txtFileContent += websites[j] + ": " + searchResults.get(j).get(i) + "\n";
+                }
+                
+                txtFileContent += "\n";
+                txtFileWriter.write(txtFileContent);
+                
+            }
+            
+        } catch (IOException e) {
+            System.out.println("Error Writing Files: " + e.getMessage());
+        }
+        
+    }
+}
