@@ -1,7 +1,6 @@
 package IndigenousPeopleGroups_NamesWebScraper.IndigenousPeopleGroups_NamesWebScraper;
 
-/* Importing necessary packages and libraries. 
- Ensure the corresponding Maven plug-ins exist in pom.xml */
+/* Import libraries/packages. Make sure they exist in your pom.xml */
 import org.openqa.selenium.By;
 import org.openqa.selenium.WebDriver;
 import org.openqa.selenium.chrome.ChromeDriver;
@@ -31,7 +30,8 @@ import java.util.Scanner;
 public class IndigenousPeopleGroupsNamesWebScraper {
 
     public static void main(String[] args) {
-    	
+
+     /* Useragent strings sent to the website to be rotated to prevent blockage from repeated access from same user. */
     	String[] userAgents = {
     		    "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/121.0.6167.139 Safari/537.36",
     		    "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/15.0 Safari/605.1.15",
@@ -48,7 +48,7 @@ public class IndigenousPeopleGroupsNamesWebScraper {
 
         // File path for Excel file to be read containing People Group Ethnicities Tribal data.
         String inputFilePath = "/Users/mohidbasha/2023-12_PHIL_GSEC_Listing_of_People_Groups Filtered Copy_People_Groups_and_People_Names.xlsx";
-        // Country domain (URL suffix) to be searched for results.
+        // Country domain (URL suffix) to be searched for results. (In this case "ph" for Philippines).
         String countryDomain = "ph";
 
         // List of People Groups and other data from the Excel file.
@@ -60,14 +60,14 @@ public class IndigenousPeopleGroupsNamesWebScraper {
         // Initializing a single WebDriver instance to be reused
         WebDriver driver = initializeWebDriver(userAgents);
 
-        // Function call to read from Excel file and store data into the peopleGroups and peopleNames containers.
+        // Function call to read from Excel file and store data into the peopleGroups and peopleNames arraylists
         readExcelFile(inputFilePath, peopleGroups, peopleNames, peids, populations);
         System.out.println(peopleGroups.size());
         System.out.println(peopleNames.size());
         System.out.println(peids.size());
         System.out.println(populations.size());
 
-        // Storing the results when searching for tribes in Google.
+        // Storing the results when searching for tribes through Google.
         List<List<String>> searchResults = new ArrayList<>();
         
         int currUserAgentIndex = 0; // Initialize the index for the first User-Agent
@@ -119,7 +119,7 @@ public class IndigenousPeopleGroupsNamesWebScraper {
 
         List<String> resultList = new ArrayList<String>();
 
-        // Loop through user agents and perform searches
+        // Rotating user agents
         for (String userAgent : userAgents) {
             // Set user agent in ChromeOptions
             ChromeOptions options = new ChromeOptions();
@@ -139,7 +139,7 @@ public class IndigenousPeopleGroupsNamesWebScraper {
         }
 
 
-        // Check if there are no results and perform a separate search without additional search terms
+        // Check if there are no results and perform a separate search without additional search terms if no results with search terms are accessible
         if (resultList.isEmpty()) {
             System.out.println("People Group Name:" + peopleGroup + ". No results or issue retrieving data - Performing a separate search without additional terms.");
 
@@ -179,7 +179,7 @@ public class IndigenousPeopleGroupsNamesWebScraper {
     	        System.out.println("CAPTCHA detected! Please manually complete the CAPTCHA to continue.");
     	        System.out.println("Press Enter to continue after completing the CAPTCHA.");
     	        
-    	        // Wait for user to press Enter
+    	        // Waiting for user to press Enter in case of CAPTCHA after manual completion
     	        Scanner sc = new Scanner(System.in);
     	        sc.nextLine();
     	        
@@ -252,7 +252,7 @@ public class IndigenousPeopleGroupsNamesWebScraper {
     
     
     
-    // Method to read the input of the given Excel File
+    // Method to read the input of the given Excel File and sheets/columns/rows desired to be searched
     private static void readExcelFile(String inputFilePath, ArrayList<String> peopleGroups, ArrayList<String> peopleNames,
                                       ArrayList<Integer> peids, ArrayList<Integer> populations) {
         Workbook workbook = null;
@@ -330,13 +330,13 @@ public class IndigenousPeopleGroupsNamesWebScraper {
     // Method to set up the Web Driver. Uses Chrome Selenium WebDriver.
     
     private static WebDriver initializeWebDriver(String[] userAgents) {
-    	// Setting up WebDriver
+    	// Setting up WebDriver, make sure file path to driver is correct on your local storage
     	System.setProperty("webdriver.chrome.driver", "/Users/mohidbasha/Downloads/chromedriver-mac-x64/chromedriver");
 
         // Retrieving a random user agent string to use from the various user agents initialized in main method. 
         String randomUserAgent = getRandomUserAgent(userAgents);
 
-        // Create ChromeOptions instance
+        // Create ChromeOptions instance (used to add to chrome driver)
         ChromeOptions options = new ChromeOptions();
 
         // Add the user agent to ChromeOptions
