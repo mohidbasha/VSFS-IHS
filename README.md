@@ -13,7 +13,7 @@ You want to ensure you understand how to setup a Maven project in order to set u
 
 When you run the code it may say "Error StatusLogger, etc." Ignore this message, simply letting you know it is using default plug-ins to connect to website, etc.
 
-Program will create both a CSV File and a TXT File with results of each search term's corresponding google results. 
+Program will create both a CSV File and a TXT File with results of each search term's corresponding google results in an organized format. Sample use case results look like this:
 
 "webscraper_searching_specific_websites_html" searches through a given list of websites, given input excel file, and searches for each term in the excel file to determine whether the file exists in the html text from the home html text page of each URL's. Keep in mind some websites may have forbidden access codes such as Status Code: 403 among others which may be reasons why this type of approach may not result in getting the expected results despite being significantly faster than the approach mentioned previously. 
 
