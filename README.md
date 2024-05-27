@@ -9,7 +9,7 @@ JSoup Library: https://jsoup.org/
 Setup Eclipse IDE or other Java supported IDE: https://eclipseide.org/
 
 "google_search_automation_useragents_webdriver" uses Selenium Webdriver to automate the connection/gathering of different URLs and Google Search Results Data. Additionally, this implementation incorporates UserAgent rotation to minimize the chances of running into issues such as sending too many requests at once and getting CAPTCHA blockage requests as Google may think you are bot. Selenium webdriver: https://www.selenium.dev/documentation/
-You want to ensure you understand how to setup a Maven project in order to set up all the dependencies in the pom.xml file. This approach can be time consuming and resource extensive as it opens a new browser for each search. 
+You want to ensure you understand how to setup a Maven project in order to set up all the dependencies in the pom.xml file such as file reading, selenium, among others. This approach can be time consuming and resource extensive as it opens a new browser for each search. 
 
 When you run the code it may say "Error StatusLogger, etc." Ignore this message, simply letting you know it is using default plug-ins to connect to website, etc.
 
