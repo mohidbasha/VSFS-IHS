@@ -8,6 +8,7 @@ Based on Java JSoup Library - Alternative to Python BeautifulSoup (Can be transl
 JSoup Library: https://jsoup.org/
 
 Setup Eclipse IDE or other Java supported IDE: https://eclipseide.org/
+
 Maven: https://maven.apache.org/
 
 "google_search_automation_useragents_webdriver" uses Selenium Webdriver to automate the connection/gathering of different URLs and Google Search Results Data. Additionally, this implementation incorporates UserAgent rotation to minimize the chances of running into issues such as sending too many requests at once and getting CAPTCHA blockage requests as Google may think you are bot. Selenium webdriver: https://www.selenium.dev/documentation/
