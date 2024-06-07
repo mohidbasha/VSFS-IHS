@@ -2,7 +2,7 @@
 
 - Automating google search results
 
-Project for validating information of Indigenous People Groups across for the Virtual Student Federal Service Indian Health Service. More information about the Indian Health Service and their mission can be found here: https://www.ihs.gov/
+Project for validating information of Indigenous People Groups across for the Virtual Student Federal Service Internship Project with the Indian Health Service. More information about the Indian Health Service and their mission can be found here: https://www.ihs.gov/
 
 Based on Java JSoup Library - Alternative to Python BeautifulSoup (Can be translated to each other with some work)
 JSoup Library: https://jsoup.org/
